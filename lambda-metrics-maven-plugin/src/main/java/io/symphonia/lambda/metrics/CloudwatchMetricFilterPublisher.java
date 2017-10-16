@@ -2,9 +2,11 @@ package io.symphonia.lambda.metrics;
 
 import com.amazonaws.services.logs.AWSLogs;
 import com.amazonaws.services.logs.AWSLogsClientBuilder;
+import com.amazonaws.services.logs.model.CreateLogGroupRequest;
 import com.amazonaws.services.logs.model.DeleteMetricFilterRequest;
 import com.amazonaws.services.logs.model.MetricTransformation;
 import com.amazonaws.services.logs.model.PutMetricFilterRequest;
+import com.amazonaws.services.logs.model.ResourceAlreadyExistsException;
 import com.amazonaws.services.logs.model.ResourceNotFoundException;
 import org.apache.maven.plugin.logging.Log;
 
@@ -31,9 +33,21 @@ public class CloudwatchMetricFilterPublisher implements MetricFilterPublisher {
         log.debug(String.format("metricValue [%s]", metricFilter.getMetricValue()));
         log.debug(String.format("metricName [%s]", metricFilter.getMetricName()));
 
+        try {
+            client.createLogGroup(new CreateLogGroupRequest()
+                    .withLogGroupName(metricFilter.getLogGroupName()));
+        } catch (ResourceAlreadyExistsException e) {
+            // nop
+        }
+
+        // TODO: Make this configurable
+        String[] logGroupParts = metricFilter.getLogGroupName().split("/");
+        String lastPart = logGroupParts[logGroupParts.length - 1];
+        String metricName = String.format("%s-%s", metricFilter.getMetricName(), lastPart);
+
         MetricTransformation metricTransformation = new MetricTransformation()
                 .withMetricNamespace(metricFilter.getMetricNamespace())
-                .withMetricName(metricFilter.getMetricName())
+                .withMetricName(metricName)
                 .withMetricValue(String.format("$%s", metricFilter.getMetricValue()));
 
         client.putMetricFilter(new PutMetricFilterRequest()

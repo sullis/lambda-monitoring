@@ -44,18 +44,21 @@ public abstract class AbstractMetricFiltersMojo extends AbstractMojo {
         put("COUNTER", Collections.singletonList("count"));
         put("GAUGE", Collections.singletonList("value"));
         put("METER", Collections.singletonList("mean_rate"));
-        put("HISTOGRAM", Arrays.asList("min", "max", "mean", "p75", "p99", "p999"));
-        put("TIMER", Arrays.asList("min", "max", "mean", "p75", "p99", "p999", "mean_rate"));
+        put("HISTOGRAM", Arrays.asList("min", "max", "mean", "p75", "p95", "p99", "p999"));
+        put("TIMER", Arrays.asList("min", "max", "mean", "p75", "p95", "p99", "p999", "mean_rate"));
     }};
 
     @Parameter(required = false)
     public Map<String, String> filterPatternMap = COMPLETE_FILTER_PATTERN_MAP;
 
     @Parameter(required = false)
-    public Map<String, List<String>> metricValueMap = COMPLETE_METRIC_VALUE_MAP;
+    public Map<String, List<String>> metricValueMap = REDUCED_METRIC_VALUE_MAP;
 
     @Parameter(required = false)
     private String cloudwatchLogGroupName;
+
+    @Parameter(required = false)
+    private String[] cloudwatchLogGroupNames;
 
     List<MetricFilter> getMetricFilters(Map<String, Field> metricFields) {
         List<MetricFilter> metricFilters = new ArrayList<>();
@@ -71,11 +74,11 @@ public abstract class AbstractMetricFiltersMojo extends AbstractMojo {
             }
 
             CloudwatchLogGroup logGroupAnnotation = metricField.getDeclaringClass().getAnnotation(CloudwatchLogGroup.class);
-            String logGroup = logGroupAnnotation != null && !logGroupAnnotation.value().isEmpty() ?
-                    logGroupAnnotation.value() : cloudwatchLogGroupName;
+            String[] logGroups = logGroupAnnotation != null && !logGroupAnnotation.value().isEmpty() ?
+                    new String[]{logGroupAnnotation.value()} : getCloudwatchLogGroupNames();
 
-            if (logGroup == null || logGroup.isEmpty()) {
-                getLog().warn(String.format("No log group found for metric field [%s].", metricField.getName()));
+            if (logGroups == null || logGroups.length == 0) {
+                getLog().warn(String.format("No log groups found for metric field [%s].", metricField.getName()));
                 break;
             }
 
@@ -83,11 +86,20 @@ public abstract class AbstractMetricFiltersMojo extends AbstractMojo {
             String filterPatternFormat = filterPatternMap.get(metricType);
             List<String> metricValues = metricValueMap.get(metricType);
 
-
-            for (String metricValue : metricValues) {
-                metricFilters.add(new MetricFilter(logGroup, fullMetricName, filterPatternFormat, metricValue));
+            for (String logGroup : logGroups) {
+                for (String metricValue : metricValues) {
+                    metricFilters.add(new MetricFilter(logGroup, fullMetricName, filterPatternFormat, metricValue));
+                }
             }
         }
         return metricFilters;
+    }
+
+    private String[] getCloudwatchLogGroupNames() {
+        if (cloudwatchLogGroupNames != null && cloudwatchLogGroupNames.length != 0) {
+            return cloudwatchLogGroupNames;
+        } else {
+            return new String[]{cloudwatchLogGroupName};
+        }
     }
 }

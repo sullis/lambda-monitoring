@@ -26,13 +26,10 @@ public class PublishMetricFiltersMojo extends AbstractMetricFiltersMojo {
     private boolean dryRun;
 
     @Parameter(required = false)
-    private String cloudwatchLogGroupName;
-
-    @Parameter(required = false)
     private Map<String, String> filterPatternMap = COMPLETE_FILTER_PATTERN_MAP;
 
     @Parameter(required = false)
-    private Map<String, List<String>> metricValueMap = COMPLETE_METRIC_VALUE_MAP;
+    private Map<String, List<String>> metricValueMap = REDUCED_METRIC_VALUE_MAP;
 
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
